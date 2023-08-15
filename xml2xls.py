@@ -4,7 +4,6 @@ import time
 import xml.etree.ElementTree as ET
 from datetime import datetime, timedelta
 from pathlib import Path
-# import ipywidgets as wg  # элементы управления для jupyter
 
 # import numpy as np
 import pandas as pd
@@ -14,16 +13,17 @@ import argparse
 from colorama import init, Fore
 from colorama import Back
 from colorama import Style
+
 init(autoreset=True)
 
 DEBUG = False
 DATA = []
-QNTY_TAGS = 0  # колличество тегов
-QNTY_VALS = 0  # колличество значений
+QTY_TAGS = 0  # количество тегов
+QTY_VALS = 0  # количество значений
 _PRG_DIR = Path("./").absolute()
 _TRND_DIR = _PRG_DIR  # _PRG_DIR / "trends/"
 _LOG_FILE = _PRG_DIR / "xml2xls.log"
-_MAX_ROWS_EXL = 1000000  # макс. кол-во строк в Excel 1048000
+MAX_ROWS_EXL = 1000000  # макс. кол-во строк в Excel 1048000
 _MAGADAN_UTC = 11  # Магаданское время +11 часов к UTC
 log_format = f"%(asctime)s - %(levelname)s -(%(funcName)s(%(lineno)d) - %(message)s"
 logging.basicConfig(
@@ -100,15 +100,15 @@ def save_as_xlsx(dataframes: list, filename):
             # колл-во строк в DF
             count_row = df.shape[0]
             # колличество вкладок excel
-            qty_sheets = count_row // _MAX_ROWS_EXL + 1 if (count_row > _MAX_ROWS_EXL) else 1
+            qty_sheets = count_row // MAX_ROWS_EXL + 1 if (count_row > MAX_ROWS_EXL) else 1
             logger.debug(f"Тег: {tag[0]}; count row: {count_row}; pages:{qty_sheets} ")
             for i in range(qty_sheets):
                 logger.debug(f"Перебор листов i {i}")
                 sheet_name = f"{tag_name} {i + 1}"
-                first_row = i * _MAX_ROWS_EXL
+                first_row = i * MAX_ROWS_EXL
                 end_row = (
-                    ((i + 1) * _MAX_ROWS_EXL)
-                    if count_row >= ((i + 1) * _MAX_ROWS_EXL)
+                    ((i + 1) * MAX_ROWS_EXL)
+                    if count_row >= ((i + 1) * MAX_ROWS_EXL)
                     else count_row
                 )
                 logger.debug(f"sheet_name: {sheet_name}; first_row: {first_row}; end row: {end_row}")
@@ -142,6 +142,11 @@ def convert_xml2xls(xml_file_name):
         # открытие xml файла
         xml_root = open_xml(xml_file_name)
         bar()
+    # Проверка, что файл export трендов
+    tmp = xml_root.tag
+    if xml_root.tag != '{Fls.Core.Value.CI.Export.M1}ValueHistorianExport':
+        err_msg = f"{Fore.RED} Это не экспорт трендов ECS"
+        raise Exception(err_msg)
     # получение информации о трендах
     trends_info = get_trends_info(xml_root)
     print(f"Интервал: {Fore.GREEN}{trends_info['start_interval']} - {trends_info['end_interval']}")
@@ -162,7 +167,7 @@ def convert_xml2xls(xml_file_name):
         # date_format = '%Y-%m-%dT%H:%M:%S.%f'
         df_tag = pd.DataFrame(columns=[f"{designation}_dt", f"{designation}_value"])
         enteries = tag.find("{Fls.Core.Value.CI.Export.M1}valueEntries")
-        print(f"Обрабатывается тег:{Fore.GREEN }{designation}")
+        print(f"Обрабатывается тег:{Fore.GREEN}{designation}")
         qnty_vals_l = 0
         data2 = make_list_for_df(enteries)
         qnty_vals += len(data2)
@@ -171,27 +176,53 @@ def convert_xml2xls(xml_file_name):
         # df_tag = df_tag.iloc[:1048576] # макс. колл-во строк в EXEL <= 1048576
         data.append([designation, unit, df_tag])
 
-
     print(f"{Fore.YELLOW}Парсинг закончен")
     print(f"За время: {Fore.GREEN}{time.time() - start_time}")
     print(f"Обработано: Тегов {Fore.GREEN}{qnty_tags}{Fore.WHITE}; Значений: {Fore.GREEN}{qnty_vals}{Fore.WHITE};"
           f" Тег/сек: {Fore.GREEN}{qnty_vals / (time.time() - start_time)}")
     print(f"\n{Fore.YELLOW}Начало сохранения в XLSX {Fore.GREEN}{xml_file_name}.xlsx")
     save_as_xlsx(data, xml_file_name + ".xlsx")
-    print(f"\n{Fore.YELLOW}Exсel сохранён")
+    print(f"\n{Fore.YELLOW}Exсel сохранён: {Fore.MAGENTA}{xml_file_name}.xlsx")
     print(f"Весь процесс занял времени:{Fore.GREEN}{round(time.time() - start_time)}сек")
 
 
+def check_xml_file(file_name: str) -> bool:
+    """Проверяет, что файл существует и XML"""
+    file_xml = Path(file_name)
+    if not file_xml.suffix.lower() == '.xml':
+        err_msg = f"Нет расширения XML {Fore.RED}{file_xml}"
+        raise Exception(err_msg)
+
+    if not file_xml.is_file():
+        err_msg = f"Файл не найден {Fore.RED}{file_xml}"
+        raise Exception(err_msg)
+
+
+
 def main():
+    global MAX_ROWS_EXL
     parser = argparse.ArgumentParser(
         prog='ECS2XLS',
         description='ECS2XLS конвертор экспорта трендов ECS8 XML в XLSX',
         epilog='2023 7Art'
     )
-    parser.add_argument('file_name', type=str, help='Имя файла экспорта трендов xml')
-    args = parser.parse_args()
-    convert_xml2xls(args.file_name)
-    # print(args)
+    try:
+        parser.add_argument('file', type=str, help='Имя файла экспорта трендов xml')
+        parser.add_argument('-max_row', type=int, default=1000000, help='Макс количество строк на листе Excel (Def:1M)')
+        args = parser.parse_args()
+        MAX_ROWS_EXL = args.max_row
+        file_xml = Path(args.file)
+        check_xml_file(args.file)
+        convert_xml2xls(args.file)
+
+    except Exception as e:
+        print(e)
+        logger.info(e)
+    finally:
+        print("Press Enter to continue ...")
+        input()
+
+
 
 
 if __name__ == '__main__':
