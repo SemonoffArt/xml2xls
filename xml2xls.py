@@ -10,18 +10,19 @@ from alive_progress import alive_bar, config_handler
 from colorama import init, Fore
 from colorama import Style
 
-init(autoreset=True)
 
-_VER = 0.51
+_VERSION = 0.52
+_PRG_DIR = Path("./").absolute()
+_TRND_DIR = _PRG_DIR  # _PRG_DIR / "trends/"
+_LOG_FILE = _PRG_DIR / "xml2xls.log"
+_MAGADAN_UTC = 11  # Магаданское время +11 часов к UTC
 DEBUG = False
 DATA = []
 QTY_TAGS = 0  # количество тегов
 QTY_VALS = 0  # количество значений
 MAX_ROWS_EXL = 1000000  # макс. кол-во строк в Excel 1048000
-_PRG_DIR = Path("./").absolute()
-_TRND_DIR = _PRG_DIR  # _PRG_DIR / "trends/"
-_LOG_FILE = _PRG_DIR / "xml2xls.log"
-_MAGADAN_UTC = 11  # Магаданское время +11 часов к UTC
+
+init(autoreset=True)
 log_format = f"%(asctime)s - %(levelname)s -(%(funcName)s(%(lineno)d) - %(message)s"
 logging.basicConfig(
     format=log_format,
@@ -84,7 +85,6 @@ def make_list_for_df(enteries) -> list:
 
 def save_as_xlsx(dataframes: list, filename: str):
     """Сохраняет переданные dataframes в xlsx"""
-
     with alive_bar(len(dataframes) + 1, force_tty=True, length=30) as bar:
         with pd.ExcelWriter(_TRND_DIR / filename, engine="xlsxwriter") as writer:
             # перебор тегов
@@ -93,9 +93,9 @@ def save_as_xlsx(dataframes: list, filename: str):
                 tag_name = tag[0]
                 # колл-во строк в DF
                 count_row = df.shape[0]
-                # колличество вкладок excel
+                # количество вкладок excel
                 qty_sheets = count_row // MAX_ROWS_EXL + 1 if (count_row > MAX_ROWS_EXL) else 1
-                logger.debug(f"Тег: {tag[0]}; count row: {count_row}; pages:{qty_sheets} ")
+                logger.debug(f"Tag: {tag[0]}; count row: {count_row}; pages:{qty_sheets} ")
                 for i in range(qty_sheets):
                     logger.debug(f"Перебор листов i {i}")
                     sheet_name = f"{tag_name} {i + 1}"
@@ -108,18 +108,18 @@ def save_as_xlsx(dataframes: list, filename: str):
                     logger.debug(f"sheet_name: {sheet_name}; first_row: {first_row}; end row: {end_row}")
                     df_page = df.iloc[first_row:end_row]
                     print(
-                        f"Формируется лист: {Fore.GREEN}{sheet_name}{Fore.WHITE}; "
-                        f"колл записей:{Fore.GREEN} {df_page.shape[0]}{Fore.WHITE};\n  "
-                        f"дата от {df_page.iat[0, 0]} до {df_page.iat[df_page.shape[0] - 1, 0]} \n")
+                        f"Creating sheet: {Fore.GREEN}{sheet_name}{Fore.WHITE}; "
+                        f"number of records:{Fore.GREEN} {df_page.shape[0]}{Fore.WHITE};\n  "
+                        f"Data from {df_page.iat[0, 0]} to {df_page.iat[df_page.shape[0] - 1, 0]} \n")
 
                     df_page.to_excel(writer, sheet_name=sheet_name, startrow=2, startcol=0, index=False)
 
                     worksheet = writer.sheets[sheet_name]
-                    worksheet.write(0, 0, f"Значения тега {tag_name} за период c {df_page.iat[0, 0]} по "
+                    worksheet.write(0, 0, f"Tag values {tag_name} from date {df_page.iat[0, 0]} to "
                                           f"{df_page.iat[df_page.shape[0] - 1, 0]}")
                 bar()
 
-            print(f"Записывается файл...")
+            print(f"File saving...")
             bar()
 
 
@@ -132,22 +132,21 @@ def convert_xml2xls(xml_file_name: str):
     file_size = file.stat().st_size / 1048576
     xls_file_name = xml_file_name + ".xlsx"
 
-    print(f"{Fore.YELLOW}Открывается файл: {Fore.MAGENTA + xml_file_name + Style.RESET_ALL}; "
-          f"Размер: {Fore.GREEN + str(round(file_size)) + Style.RESET_ALL} Мб")
+    print(f"{Fore.YELLOW}File opens: {Fore.MAGENTA + xml_file_name + Style.RESET_ALL}; "
+          f"Size: {Fore.GREEN + str(round(file_size)) + Style.RESET_ALL} Mb")
     with alive_bar(1, force_tty=True, length=3) as bar:
         # открытие xml файла
         xml_root = open_xml(xml_file_name)
         bar()
     # Проверка, что файл export трендов
     if xml_root.tag != '{Fls.Core.Value.CI.Export.M1}ValueHistorianExport':
-        err_msg = f"{Fore.RED} Этот файл не экспорт трендов ECS8"
+        err_msg = f"{Fore.RED} This file is not an export of ECS8 trends"
         raise Exception(err_msg)
     # получение информации о трендах
     trends_info = get_trends_info(xml_root)
-    print(f"Интервал: {Fore.GREEN}{trends_info['start_interval']} - {trends_info['end_interval']}")
-    print(f"Количество тегов: {Fore.GREEN}{trends_info['qty_tags']}")
-    print(f"\n{Fore.YELLOW}Формируется датафрейм")
-    s_time = time.time()
+    print(f"Interval: {Fore.GREEN}{trends_info['start_interval']} - {trends_info['end_interval']}")
+    print(f"Number of tags: {Fore.GREEN}{trends_info['qty_tags']}")
+    print(f"\n{Fore.YELLOW}Dataframe is being ")
     qnty_tags = 0
     qnty_vals = 0
     # Перебор тегов
@@ -159,7 +158,7 @@ def convert_xml2xls(xml_file_name: str):
         unit = tag.find("{Fls.Core.Value.CI.Export.M1}Unit").text
         # date_format = '%Y-%m-%dT%H:%M:%S.%f'
         enteries = tag.find("{Fls.Core.Value.CI.Export.M1}valueEntries")
-        print(f"Обрабатывается тег:{Fore.GREEN}{designation}")
+        print(f"Tag processed:{Fore.GREEN}{designation}")
         data2 = make_list_for_df(enteries)
         qnty_vals += len(data2)
         df_tag = pd.DataFrame(data2, columns=["dt", "value"])
@@ -169,40 +168,41 @@ def convert_xml2xls(xml_file_name: str):
 
     del xml_root
 
-    print(f"{Fore.YELLOW}Парсинг закончен")
-    print(f"За время: {Fore.GREEN}{time.time() - start_time}")
+    print(f"{Fore.YELLOW}Parsing completed")
+    print(f"At time: {Fore.GREEN}{time.time() - start_time}")
 
-    print(f"\n{Fore.YELLOW}Начало сохранения в: {Fore.MAGENTA}{xls_file_name}")
+    print(f"\n{Fore.YELLOW}Start saving: {Fore.MAGENTA}{xls_file_name}")
     # Сохранение в Excell
     save_as_xlsx(data, xls_file_name)
 
-    print(f"\n{Fore.YELLOW}Exсel сохранён: {Fore.MAGENTA}{xls_file_name}")
-    print(f"Весь процесс занял: {Fore.GREEN}{round(time.time() - start_time)} {Fore.WHITE}сек;")
-    print(f"Обработано: {Fore.WHITE}Тегов: {Fore.GREEN}{qnty_tags}{Fore.WHITE}; Значений: {Fore.GREEN}{qnty_vals}{Fore.WHITE};")
+    print(f"\n{Fore.YELLOW}Exсel saved: {Fore.MAGENTA}{xls_file_name}")
+    print(f"Full time: {Fore.GREEN}{round(time.time() - start_time)} {Fore.WHITE}sec;")
+    print(f"Processed: {Fore.WHITE}Tags: {Fore.GREEN}{qnty_tags}{Fore.WHITE}; Values: {Fore.GREEN}{qnty_vals}{Fore.WHITE};")
 
 
 def check_xml_file(file_name: str) -> bool:
     """Проверяет, что файл существует и XML"""
     file_xml = Path(file_name)
     if not file_xml.suffix.lower() == '.xml':
-        err_msg = f"Нет расширения XML {Fore.RED}{file_xml}"
+        err_msg = f"Not XML file {Fore.RED}{file_xml}"
         raise Exception(err_msg)
 
     if not file_xml.is_file():
-        err_msg = f"Файл не найден {Fore.RED}{file_xml}"
+        err_msg = f"File not found {Fore.RED}{file_xml}"
         raise Exception(err_msg)
 
 
 def main():
     global MAX_ROWS_EXL
     parser = argparse.ArgumentParser(
-        prog='ECS2XLS ' + str(_VER),
-        description='ECS2XLS конвертор XML файлов экспорта трендов ECS8 в XLSX',
-        epilog='2023 7Art'
+        prog=f'ECS2XLS',
+        description='ECS2XLS -  Utility to convert XML file (FLS ECS Trend) to XLSX',
+        epilog=f'2023 7Art v{_VERSION}'
     )
     try:
-        parser.add_argument('file', type=str, help='Имя xml файла экспорта трендов ')
-        parser.add_argument('-max_row', type=int, default=1000000, help='Макс количество строк на листе Excel (Def:1M)')
+        parser.add_argument('file', type=str, help='Trend export xml file name')
+        parser.add_argument('-max_row', type=int, default=1000000, help='Maximum number of rows in an Excel sheet ('
+                                                                        'default:1M)')
         args = parser.parse_args()
         MAX_ROWS_EXL = args.max_row
         file_xml = Path(args.file)
@@ -213,7 +213,7 @@ def main():
         print(e)
         logger.info(e)
     finally:
-        print("Нажмите Enter для продолжения...")
+        print("Press Enter to continue...")
         input()
 
 
