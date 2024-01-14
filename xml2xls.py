@@ -208,7 +208,6 @@ def main():
                                                                         'default:1M)')
         args = parser.parse_args()
         MAX_ROWS_EXL = args.max_row
-        file_xml = Path(args.file)
         check_xml_file(args.file)
         convert_xml2xls(args.file)
 
