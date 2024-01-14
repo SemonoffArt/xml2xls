@@ -4,14 +4,14 @@ import time
 import xml.etree.ElementTree as ET
 import pandas as pd
 import argparse
+import re
 from datetime import datetime, timedelta
 from pathlib import Path
 from alive_progress import alive_bar, config_handler
 from colorama import init, Fore
 from colorama import Style
 
-
-_VERSION = 0.52
+_VERSION = 0.9
 _PRG_DIR = Path("./").absolute()
 _TRND_DIR = _PRG_DIR  # _PRG_DIR / "trends/"
 _LOG_FILE = _PRG_DIR / "xml2xls.log"
@@ -68,10 +68,12 @@ def get_trends_info(xml_root: ET.parse) -> dict:
 def make_list_for_df(enteries) -> list:
     """"""
     data = []
-
+    pattern = r'(\d{4}-\d{2}-\d+T\d+:\d+:\d{2})(?!\.\d)'
+    repl = r'\1.0'
     with alive_bar(len(enteries), force_tty=True, length=30) as bar:
         for enterie in enteries:
             str_time = enterie[1].text[:25].replace("Z", "")
+            str_time = re.sub(pattern, repl, str_time)
             time_v = datetime.strptime(str_time, "%Y-%m-%dT%H:%M:%S.%f") + timedelta(
                 hours=_MAGADAN_UTC
             )  # enterie.find('{Fls.Core.Value.CI.Export.M1}Time').text
@@ -124,7 +126,7 @@ def save_as_xlsx(dataframes: list, filename: str):
 
 
 def convert_xml2xls(xml_file_name: str):
-    """Преобразование XNL файла экспорта данных трена ECS в XLSX"""
+    """Преобразование XML файла экспорта данных трена ECS в XLSX"""
     start_time = time.time()
     data = []  #
 
@@ -177,7 +179,8 @@ def convert_xml2xls(xml_file_name: str):
 
     print(f"\n{Fore.YELLOW}Exсel saved: {Fore.MAGENTA}{xls_file_name}")
     print(f"Full time: {Fore.GREEN}{round(time.time() - start_time)} {Fore.WHITE}sec;")
-    print(f"Processed: {Fore.WHITE}Tags: {Fore.GREEN}{qnty_tags}{Fore.WHITE}; Values: {Fore.GREEN}{qnty_vals}{Fore.WHITE};")
+    print(
+        f"Processed: {Fore.WHITE}Tags: {Fore.GREEN}{qnty_tags}{Fore.WHITE}; Values: {Fore.GREEN}{qnty_vals}{Fore.WHITE};")
 
 
 def check_xml_file(file_name: str) -> bool:
@@ -208,6 +211,7 @@ def main():
         file_xml = Path(args.file)
         check_xml_file(args.file)
         convert_xml2xls(args.file)
+
 
     except Exception as e:
         print(e)
