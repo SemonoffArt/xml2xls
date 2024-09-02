@@ -2,7 +2,7 @@ import logging
 import os
 import time
 import xml.etree.ElementTree as ET
-import pandas as pd
+import pandas as pd  # Set -ExecutionPolicy -Scope CurrentUser -ExecutionPolicy Unrestricted
 import argparse
 import re
 from datetime import datetime, timedelta
@@ -180,10 +180,11 @@ def convert_xml2xls(xml_file_name: str):
     print(f"\n{Fore.YELLOW}Exсel saved: {Fore.MAGENTA}{xls_file_name}")
     print(f"Full time: {Fore.GREEN}{round(time.time() - start_time)} {Fore.WHITE}sec;")
     print(
-        f"Processed: {Fore.WHITE}Tags: {Fore.GREEN}{qnty_tags}{Fore.WHITE}; Values: {Fore.GREEN}{qnty_vals}{Fore.WHITE};")
+        f"Processed: {Fore.WHITE}Tags: {Fore.GREEN}{qnty_tags}{Fore.WHITE}; "
+        f"Values: {Fore.GREEN}{qnty_vals}{Fore.WHITE};")
 
 
-def check_xml_file(file_name: str) -> bool:
+def check_xml_file(file_name: str):
     """Проверяет, что файл существует и XML"""
     file_xml = Path(file_name)
     if not file_xml.suffix.lower() == '.xml':
@@ -210,7 +211,6 @@ def main():
         MAX_ROWS_EXL = args.max_row
         check_xml_file(args.file)
         convert_xml2xls(args.file)
-
 
     except Exception as e:
         print(e)
