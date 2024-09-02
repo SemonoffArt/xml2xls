@@ -11,7 +11,7 @@ from alive_progress import alive_bar, config_handler
 from colorama import init, Fore
 from colorama import Style
 
-_VERSION = 0.9
+_VERSION = 0.91
 _PRG_DIR = Path("./").absolute()
 _TRND_DIR = _PRG_DIR  # _PRG_DIR / "trends/"
 _LOG_FILE = _PRG_DIR / "xml2xls.log"
