@@ -2,7 +2,7 @@
 
 ## Назначение
 Преобразование xml файла экспорта трендов SCADA FLS ECS8 в EXCEL.
-![Demo](resources/xml2xls.mp4.gif)
+![Demo](resources/xml2xls.gif)
 
 ## Использование
 1. Экспортировать данные трендов в xml:
